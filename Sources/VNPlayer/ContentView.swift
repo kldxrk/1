@@ -13,6 +13,10 @@ struct ContentView: View {
                 Button("启动 Demo") { runtime.loadDemo() }
                     .buttonStyle(.borderedProminent)
 
+                if let m = runtime.message {
+                    Text(m).font(.footnote).foregroundStyle(.red)
+                }
+
                 if runtime.game != nil {
                     NavigationLink("进入游戏") {
                         PlayerView(runtime: runtime)

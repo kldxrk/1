@@ -13,17 +13,33 @@ final class DirectoryProvider: ArchiveProvider {
     }
 
     func listFiles(url: URL) throws -> [String] {
-        let base = url.standardizedFileURL
-        let e = FileManager.default.enumerator(at: base)
+        // iOS 上 /var 与 /private/var 前缀可能不一致，所以统一解析符号链接后按路径分量取相对路径
+        let base = url.resolvingSymlinksInPath()
+        let baseCount = base.pathComponents.count
+        guard let e = FileManager.default.enumerator(
+            at: base,
+            includingPropertiesForKeys: [.isDirectoryKey],
+            options: [.skipsHiddenFiles]
+        ) else { throw VNRuntimeError.gameNotFound }
+
         var result: [String] = []
-        while let item = e?.nextObject() as? URL {
-            result.append(item.path.replacingOccurrences(of: base.path + "/", with: ""))
+        for case let item as URL in e {
+            let isDir = (try? item.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) ?? false
+            if isDir { continue }
+            let comps = item.resolvingSymlinksInPath().pathComponents
+            result.append(comps.dropFirst(baseCount).joined(separator: "/"))
         }
-        return result
+        return result.sorted()
     }
 
     func readFile(url: URL, path: String) throws -> Data {
-        try Data(contentsOf: url.appendingPathComponent(path))
+        let base = url.resolvingSymlinksInPath()
+        let target = base.appendingPathComponent(path).resolvingSymlinksInPath()
+        let b = base.pathComponents
+        let t = target.pathComponents
+        // 防止 "../" 逃出游戏目录
+        guard t.count > b.count, Array(t.prefix(b.count)) == b else { throw VNRuntimeError.invalidPath }
+        return try Data(contentsOf: target, options: .mappedIfSafe)
     }
 }
 
@@ -34,7 +50,7 @@ final class PACProvider: ArchiveProvider {
     func readFile(url: URL, path: String) throws -> Data { throw VNRuntimeError.unsupportedArchive }
 }
 
-// 占位：后续依据公开格式规范实现 XP3。
+// 占位：后续依据公开格式规范实现 XP3（读取时用 .mappedIfSafe，不要整包读入内存）。
 final class XP3Provider: ArchiveProvider {
     func canOpen(url: URL) -> Bool { url.pathExtension.lowercased() == "xp3" }
     func listFiles(url: URL) throws -> [String] { throw VNRuntimeError.unsupportedArchive }

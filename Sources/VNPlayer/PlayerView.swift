@@ -2,13 +2,24 @@ import SwiftUI
 
 struct PlayerView: View {
     @ObservedObject var runtime: VNRuntime
+    @Environment(\.dismiss) private var dismiss
 
     var body: some View {
-        ZStack(alignment: .bottom) {
-            Rectangle().fill(.black).ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
             VStack(spacing: 0) {
-                Spacer()
+                HStack {
+                    Button("退出") { dismiss() }
+                        .buttonStyle(.bordered)
+                    Spacer()
+                    if let m = runtime.message {
+                        Text(m).font(.footnote).foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.horizontal)
+                .padding(.top, 8)
+
                 if let scene = runtime.currentScene {
                     Text(scene.background ?? "BACKGROUND")
                         .foregroundStyle(.secondary)
@@ -22,8 +33,11 @@ struct PlayerView: View {
                     .padding(20)
                     .background(.ultraThinMaterial)
                     .clipShape(RoundedRectangle(cornerRadius: 18))
-                    .padding()
+                    .padding(.horizontal)
+                } else {
+                    Spacer()
                 }
+
                 HStack {
                     Button("上一句") { runtime.previous() }
                     Spacer()
@@ -31,12 +45,15 @@ struct PlayerView: View {
                     Button("读档") { runtime.load(slot: 1) }
                     Spacer()
                     Button("下一句") { runtime.next() }
+                        .disabled(runtime.isAtEnd)
                 }
                 .padding()
                 .buttonStyle(.borderedProminent)
             }
         }
+        .preferredColorScheme(.dark)
         .contentShape(Rectangle())
         .onTapGesture { runtime.next() }
+        .statusBarHidden(true)
     }
 }
